@@ -40,7 +40,16 @@ def patch_conf(text):
     text = re.sub(r"^(skip-proxy)\s*=\s*(.+)$", clean_item, text, flags=re.MULTILINE)
     text = re.sub(r"^(tun-excluded-routes)\s*=\s*(.+)$", clean_item, text, flags=re.MULTILINE)
 
-    # 2. Pre-inject placeholder rule at the top of [Rule]
+    # 2. Add tun-included-routes = 10.10.0.0/24 (forces iOS routing table to capture 10.10.0.0/24 into TUN)
+    if re.search(r"^tun-included-routes\s*=", text, flags=re.MULTILINE):
+        text = re.sub(r"^tun-included-routes\s*=\s*(.*)$", r"tun-included-routes = 10.10.0.0/24, \1", text, flags=re.MULTILINE)
+        text = text.replace("10.10.0.0/24, \n", "10.10.0.0/24\n")
+    elif re.search(r"^#\s*tun-included-routes\s*=", text, flags=re.MULTILINE):
+        text = re.sub(r"^#\s*tun-included-routes\s*=\s*.*$", "tun-included-routes = 10.10.0.0/24", text, flags=re.MULTILINE)
+    else:
+        text = text.replace("[General]\n", "[General]\ntun-included-routes = 10.10.0.0/24\n", 1)
+
+    # 3. Pre-inject placeholder rule at the top of [Rule]
     placeholder_rule = (
         "[Rule]\n"
         "IP-CIDR,10.10.0.0/24,DIRECT,no-resolve\n"
