@@ -1,0 +1,38 @@
+name: Sync & Patch Upstream Rules
+
+on:
+  schedule:
+    # 每天北京时间 08:30 (UTC 00:30) 运行，在 upstream 每天 08:00 构建后自动同步
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Rule Syncer & Patcher
+        run: |
+          python3 sync.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes detected. Rules are up to date."
+          else
+            git commit -m "chore: auto-sync and patch rules $(date -u +'%Y-%m-%d %H:%M:%S UTC') [skip ci]"
+            git push
+          fi
