@@ -29,7 +29,7 @@ def fetch_raw_content(path):
         return resp.read()
 
 def patch_conf(text):
-    # Remove 10.0.0.0/8 from skip-proxy and tun-excluded-routes
+    # 1. Remove 10.0.0.0/8 from skip-proxy and tun-excluded-routes
     def clean_item(match):
         key = match.group(1)
         val = match.group(2)
@@ -39,6 +39,17 @@ def patch_conf(text):
 
     text = re.sub(r"^(skip-proxy)\s*=\s*(.+)$", clean_item, text, flags=re.MULTILINE)
     text = re.sub(r"^(tun-excluded-routes)\s*=\s*(.+)$", clean_item, text, flags=re.MULTILINE)
+
+    # 2. Pre-inject placeholder rule at the top of [Rule]
+    placeholder_rule = (
+        "[Rule]\n"
+        "IP-CIDR,10.10.0.0/24,DIRECT,no-resolve\n"
+    )
+    if "[Rule]\n" in text:
+        text = text.replace("[Rule]\n", placeholder_rule, 1)
+    elif "[Rule]" in text:
+        text = text.replace("[Rule]", placeholder_rule, 1)
+
     return text
 
 def main():
