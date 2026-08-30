@@ -3,6 +3,7 @@ import urllib.parse
 import json
 import re
 import os
+import time
 
 UPSTREAM_REPO = "Johnshall/Shadowrocket-ADBlock-Rules-Forever"
 BRANCH = "release"
@@ -21,12 +22,28 @@ def fetch_tree():
         data = json.loads(resp.read().decode("utf-8"))
         return [item["path"] for item in data.get("tree", []) if item["type"] == "blob"]
 
-def fetch_raw_content(path):
+def fetch_raw_content(path, retries=3):
     quoted_path = urllib.parse.quote(path)
-    url = f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{BRANCH}/{quoted_path}"
-    req = urllib.request.Request(url, headers={"User-Agent": "Shadowrocket-Rule-Syncer"})
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return resp.read()
+    urls = [
+        # 1. GitHub API (handles direct access reliably across regions)
+        (f"https://api.github.com/repos/{UPSTREAM_REPO}/contents/{quoted_path}?ref={BRANCH}",
+         {"User-Agent": "Shadowrocket-Rule-Syncer", "Accept": "application/vnd.github.v3.raw"}),
+        # 2. Raw GitHub UserContent fallback
+        (f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{BRANCH}/{quoted_path}",
+         {"User-Agent": "Shadowrocket-Rule-Syncer"})
+    ]
+
+    for attempt in range(retries):
+        for url, headers in urls:
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    return resp.read()
+            except Exception as e:
+                pass
+        time.sleep(1.5)
+    
+    raise RuntimeError(f"Failed to fetch content for: {path} after {retries} retries")
 
 def patch_conf(text):
     # 1. Remove 10.0.0.0/8 from skip-proxy and tun-excluded-routes
@@ -77,9 +94,16 @@ def main():
         raw_bytes = fetch_raw_content(path)
         
         if path.endswith(".conf"):
+            # 1. Standard / Official Upstream Config (Pure & untouched)
+            with open(path, "wb") as f:
+                f.write(raw_bytes)
+            
+            # 2. WireGuard / TUN Patched Config (wg_ prefix)
             text = raw_bytes.decode("utf-8")
             patched_text = patch_conf(text)
-            with open(path, "w", encoding="utf-8") as f:
+            file_name = os.path.basename(path)
+            wg_path = os.path.join(dir_name, f"wg_{file_name}") if dir_name else f"wg_{file_name}"
+            with open(wg_path, "w", encoding="utf-8") as f:
                 f.write(patched_text)
         elif path.lower() == "readme.md":
             continue
