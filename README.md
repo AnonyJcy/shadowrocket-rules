@@ -77,27 +77,9 @@
 
 ---
 
-### 🧩 内置合成模块（Duolingo Max 解锁）
-
-所有生成的 `.conf`（含 `wg_` 版本）在同步时都会自动补上以下模块内容，因此**不需要再单独装模块**：
-
-| 项目 | 内容 |
-|---|---|
-| `[Script]` | `Duolingo_Max = type=http-response,pattern=…duolingo.com/2023-05-23/(batch\|users/*)…` |
-| 脚本地址 | `https://raw.githubusercontent.com/AnonyJcy/MyScripts/main/lingoDuo/lingoDuo-xaM.js` |
-| `[MITM]` | 追加 `ios-api-*.duolingo.com`、`ios-api-*.duolingo.cn`、`api*.duolingo.com`、`api*.duolingo.cn` |
-
-维护方式：模块定义写在 `sync.py` 的 `INJECTED_SCRIPTS` 里，上游每天覆盖 conf 后会由注入逻辑重新写回，**幂等**（重复运行不会重复追加）。要再加别的模块，往该列表里追加一项即可。
-
-> ⚠️ 需要先安装并信任 Shadowrocket 的 MITM 证书（设置 → 证书 → 生成/信任），脚本才会生效。
-> 也可以不合并：直接在 Shadowrocket 里作为独立「模块」导入原版 `lingoDuo-xaM.module`，两种方式效果等价。
-
----
-
 ### 🤖 自动化运维
 
 - **定时同步**：由 GitHub Actions 于每日北京时间 08:30 (UTC 00:30) 自动拉取上游发布版本并同时生成两套规则推送到仓库。
-- **模块注入**：同步后自动把 `INJECTED_SCRIPTS` 中的模块写入所有 conf（见上节）。
 - **纯净开源**：不含任何私人服务器 IP、凭据或密钥，安全透明。
 
 ---
